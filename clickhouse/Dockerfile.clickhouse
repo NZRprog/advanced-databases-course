@@ -1,0 +1,20 @@
+FROM clickhouse/clickhouse-server:latest
+
+# Устанавливаем curl для загрузки данных
+USER root
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Копируем скрипты инициализации
+COPY init-scripts/ /docker-entrypoint-initdb.d/
+
+# Копируем данные для импорта в user_files
+COPY data/import/ /var/lib/clickhouse/user_files/
+
+# Делаем скрипты исполняемыми
+RUN chmod +x /docker-entrypoint-initdb.d/*.sh
+
+# Устанавливаем правильные права
+RUN chown -R clickhouse:clickhouse /docker-entrypoint-initdb.d/
+RUN chown -R clickhouse:clickhouse /var/lib/clickhouse/user_files/
+
+USER clickhouse

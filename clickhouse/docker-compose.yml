@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    build:
+      context: .
+      dockerfile: Dockerfile.clickhouse
+    container_name: clickhouse-dev
+    ports:
+      - "8123:8123"
+      - "9363:9363"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse  # Используем именованный том для данных
+      - ./configs/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./configs/users.xml:/etc/clickhouse-server/users.d/users.xml
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-clickhouse
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-clickhouse
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  monitoring:
+    driver: bridge
